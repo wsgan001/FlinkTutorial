@@ -1,8 +1,9 @@
 package com.aiguigu.apitest
 
-import java.util.Properties
+import java.util.{Properties, Random}
 
 import org.apache.flink.api.common.serialization.SimpleStringSchema
+import org.apache.flink.streaming.api.functions.source.SourceFunction
 import org.apache.flink.streaming.api.scala.StreamExecutionEnvironment
 import org.apache.flink.streaming.api.scala._
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer011
@@ -12,6 +13,7 @@ case class SensorReading(id: String, timestamp: Long, temperature: Double)
 object SourceTest {
   def main(args: Array[String]): Unit = {
     val env = StreamExecutionEnvironment.getExecutionEnvironment
+    env.setParallelism(1)
 
     // 1. 从集合中读取数据(有界流)
 //    val dataList = List(
@@ -35,6 +37,43 @@ object SourceTest {
 //    val stream3 = env.addSource(new FlinkKafkaConsumer011[String]("sensor", new SimpleStringSchema(), properties))
 //    stream3.print()
 
+    // 4. 自定义Source
+    val stream4 = env.addSource(new MySensorSource())
+    stream4.print()
+
     env.execute("SourceTest")
+  }
+}
+
+class MySensorSource extends SourceFunction[SensorReading] {
+
+  // 标志位
+  var running: Boolean = true
+
+  override def run(sourceContext: SourceFunction.SourceContext[SensorReading]): Unit = {
+    // 随机数发生器
+    val random = new Random()
+
+    // 随机生成一组10个传感器初始温度
+    var curTemp = 1.to(10).map( i => ("sensor_"+i, random.nextDouble() * 100))
+
+    while (running) {
+      // 再上次数据基础上微调更新温度值
+      curTemp = curTemp.map(
+        data => (data._1, data._2 + random.nextGaussian())
+      )
+
+      // 获取当前时间戳
+      val curTime = System.currentTimeMillis()
+      curTemp.foreach(
+        data => sourceContext.collect(SensorReading(data._1, curTime, data._2))
+      )
+
+      Thread.sleep(500)
+    }
+  }
+
+  override def cancel(): Unit = {
+    running = false
   }
 }
