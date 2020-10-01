@@ -22,20 +22,22 @@ object TransformTest {
     // 5. 滚动聚合算子: sum/min/max/minBy/maxBy
     val env = StreamExecutionEnvironment.getExecutionEnvironment
 //    env.setParallelism(1)
+    // 0. 读取数据
     val inputPath = getClass.getResource("/sensor.txt").getPath
     val inputStream = env.readTextFile(inputPath)
+    // 1. 先转换成SensorReading数据类型(简单转换操作)
     val dataStream = inputStream.map(
       data=>{
         val arr = data.split(",")
         SensorReading(arr(0), arr(1).toLong, arr(2).toDouble)
       }
     )
-    // 分组聚合
+    // 2. 分组聚合
     val aggStream = dataStream
       .keyBy("id") // 以id分组
       .minBy("temperature")
 
-    // 输出当前最小温度值以及最近的时间戳
+    // 3. 输出当前最小温度值以及最近的时间戳
     val resultStream = dataStream
       .keyBy("id")
       .reduce((curState, newData) => {
@@ -43,7 +45,22 @@ object TransformTest {
       })
 //      .reduce(new MyReduceFunction())
 
-    resultStream.print()
+    // DataStream -> split -> SplitStream -> select -> DataStream
+    // 4. 多流转换操作
+    // 4.1 将传感器数据分为低温和高温两个流
+    val splitStream = dataStream
+      .split( data => {
+        if (data.temperature > 30) Seq("high") else Seq("low")
+      })
+
+    val highTempStream = splitStream.select("high")
+    val lowTempStream  = splitStream.select("low")
+    val allTempStream  = splitStream.select("high", "low")
+    highTempStream.print("high")
+    lowTempStream.print("low")
+    allTempStream.print("all")
+
+//    resultStream.print()
     env.execute("TransformTest")
   }
 }
