@@ -1,7 +1,11 @@
 package com.aiguigu.apitest
 
+import java.util.Properties
+
+import org.apache.flink.api.common.serialization.SimpleStringSchema
 import org.apache.flink.streaming.api.scala.StreamExecutionEnvironment
 import org.apache.flink.streaming.api.scala._
+import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer011
 
 case class SensorReading(id: String, timestamp: Long, temperature: Double)
 
@@ -23,6 +27,13 @@ object SourceTest {
 //    val inputPath = getClass.getResource("/sensor.txt").getPath
 //    val stream2 = env.readTextFile(inputPath)
 //    stream2.print()
+
+    // 3. 从Kafka中读取数据
+//    val properties = new Properties()
+//    properties.setProperty("bootstrap.servers", "localhost:9092")
+//    properties.setProperty("group.id", "consumer-group")
+//    val stream3 = env.addSource(new FlinkKafkaConsumer011[String]("sensor", new SimpleStringSchema(), properties))
+//    stream3.print()
 
     env.execute("SourceTest")
   }
