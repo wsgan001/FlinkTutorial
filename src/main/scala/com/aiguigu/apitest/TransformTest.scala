@@ -1,5 +1,6 @@
 package com.aiguigu.apitest
 
+import org.apache.flink.api.common.functions.ReduceFunction
 import org.apache.flink.api.common.serialization.SimpleStringSchema
 import org.apache.flink.streaming.api.functions.source.SourceFunction
 import org.apache.flink.streaming.api.scala.StreamExecutionEnvironment
@@ -34,7 +35,21 @@ object TransformTest {
       .keyBy("id") // 以id分组
       .minBy("temperature")
 
-    aggStream.print()
+    // 输出当前最小温度值以及最近的时间戳
+    val resultStream = dataStream
+      .keyBy("id")
+      .reduce((curState, newData) => {
+        SensorReading(curState.id, newData.timestamp, curState.temperature.min(newData.temperature))
+      })
+//      .reduce(new MyReduceFunction())
+
+    resultStream.print()
     env.execute("TransformTest")
+  }
+}
+
+class MyReduceFunction extends ReduceFunction [SensorReading] {
+  override def reduce(v1: SensorReading, v2: SensorReading): SensorReading = {
+    SensorReading(v1.id, v2.timestamp, v1.temperature.min(v2.temperature))
   }
 }
