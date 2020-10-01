@@ -2,7 +2,9 @@ package com.aiguigu.apitest.sinktest
 
 import com.aiguigu.apitest.SensorReading
 import com.aiguigu.apitest.TransformTest.getClass
-import org.apache.flink.api.common.serialization.SimpleStringSchema
+import org.apache.flink.api.common.serialization.{SimpleStringEncoder, SimpleStringSchema}
+import org.apache.flink.core.fs.Path
+import org.apache.flink.streaming.api.functions.sink.filesystem.StreamingFileSink
 import org.apache.flink.streaming.api.functions.source.SourceFunction
 import org.apache.flink.streaming.api.scala.StreamExecutionEnvironment
 import org.apache.flink.streaming.api.scala._
@@ -22,7 +24,10 @@ object FileSink {
     )
 
     dataStream.print()
-    dataStream.writeAsCsv("out.txt")
+//    dataStream.writeAsCsv("out.txt")
+    dataStream.addSink(
+      StreamingFileSink.forRowFormat(new Path("out"),
+      new SimpleStringEncoder[SensorReading]()).build())
 
     env.execute("FileSinkTest")
   }
