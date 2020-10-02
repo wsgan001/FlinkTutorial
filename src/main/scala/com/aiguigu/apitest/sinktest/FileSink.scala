@@ -1,14 +1,10 @@
 package com.aiguigu.apitest.sinktest
 
 import com.aiguigu.apitest.SensorReading
-import com.aiguigu.apitest.TransformTest.getClass
-import org.apache.flink.api.common.serialization.{SimpleStringEncoder, SimpleStringSchema}
+import org.apache.flink.api.common.serialization.SimpleStringEncoder
 import org.apache.flink.core.fs.Path
 import org.apache.flink.streaming.api.functions.sink.filesystem.StreamingFileSink
-import org.apache.flink.streaming.api.functions.source.SourceFunction
-import org.apache.flink.streaming.api.scala.StreamExecutionEnvironment
-import org.apache.flink.streaming.api.scala._
-import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer011
+import org.apache.flink.streaming.api.scala.{StreamExecutionEnvironment, _}
 
 object FileSink {
   def main(args: Array[String]): Unit = {
