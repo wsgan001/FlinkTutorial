@@ -2,11 +2,12 @@ package com.aiguigu.apitest
 
 import java.util
 
-import org.apache.flink.api.common.functions.RichMapFunction
+import org.apache.flink.api.common.functions.{RichFlatMapFunction, RichMapFunction}
 import org.apache.flink.api.common.state.{ListState, ListStateDescriptor, MapState, MapStateDescriptor, ReducingState, ReducingStateDescriptor, ValueState, ValueStateDescriptor}
 import org.apache.flink.configuration.Configuration
 import org.apache.flink.streaming.api.scala.StreamExecutionEnvironment
 import org.apache.flink.streaming.api.scala._
+import org.apache.flink.util.Collector
 
 object StateTest {
   def main(args: Array[String]): Unit = {
@@ -20,7 +21,36 @@ object StateTest {
       }
     )
 
+    // 需求: 对于温度传感器温度值跳变超过10度则报警
+
+    val alertStream = dataStream
+      .keyBy(_.id)
+      .flatMap(new TempChangeAlert(10.0))
+
+    alertStream.print()
+
+
     env.execute("StateTest")
+  }
+}
+
+// 实现自定义RichFlatMapFunction
+
+class TempChangeAlert(threshold: Double) extends RichFlatMapFunction[SensorReading, (String, Double, Double)] {
+
+  lazy val lastTempState: ValueState[Double] = getRuntimeContext.getState(
+    new ValueStateDescriptor[Double]("lastTemp", classOf[Double])
+  )
+
+  override def flatMap(in: SensorReading, collector: Collector[(String, Double, Double)]): Unit = {
+    // 获取上次的温度值
+    val lastTemp = lastTempState.value()
+    // 跟最新的温度值求差值
+    val diff = (in.temperature - lastTemp).abs
+    if (diff > threshold) {
+      collector.collect((in.id, lastTemp, in.temperature))
+    }
+    lastTempState.update(in.temperature)
   }
 }
 
