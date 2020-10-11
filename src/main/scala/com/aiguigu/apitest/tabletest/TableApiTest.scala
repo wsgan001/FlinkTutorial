@@ -5,7 +5,7 @@ import org.apache.flink.api.scala._
 import org.apache.flink.streaming.api.scala.StreamExecutionEnvironment
 import org.apache.flink.table.api.scala.{BatchTableEnvironment, StreamTableEnvironment, _}
 import org.apache.flink.table.api.{DataTypes, EnvironmentSettings, Table, TableEnvironment}
-import org.apache.flink.table.descriptors.{Csv, FileSystem, OldCsv, Schema}
+import org.apache.flink.table.descriptors.{Csv, FileSystem, Kafka, OldCsv, Schema}
 
 object TableApiTest {
   def main(args: Array[String]): Unit = {
@@ -54,6 +54,23 @@ object TableApiTest {
 
     val inputTable: Table = tableEnv.from("inputTable")
     inputTable.toAppendStream[(String, Long, Double)].print()
+
+    // 2.2 从KAFKA读取数据
+    tableEnv.connect(new Kafka()
+      .version("0.11")
+      .topic("sensor")
+      .property("zookeeper.connect", "node01:2181")
+      .property("bootstrap.servers", "node01:9092")
+    )
+      .withFormat(new Csv())
+      .withSchema(new Schema()
+        .field("id", DataTypes.STRING)
+        .field("timestamp", DataTypes.BIGINT())
+        .field("temperature", DataTypes.DOUBLE())
+      )
+      .createTemporaryTable("KafkaInputTable")
+    val kafkaInputTable: Table = tableEnv.from("KafkaInputTable")
+    kafkaInputTable.toAppendStream[(String, Long, Double)].print()
 
     env.execute("TableApiTest")
   }
