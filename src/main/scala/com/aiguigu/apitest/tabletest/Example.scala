@@ -25,13 +25,13 @@ object Example {
       .select("id, temperature")
       .filter("id == 'sensor_1'")
     resultTable.toAppendStream[(String, Double)]
-        .print()
+        .print("TableApi")
 
     // 用sql实现
     tableEnv.createTemporaryView("dataTable", dataTable)
-    val sql = "SELECT id,temperature FROM dataTable WHERE id='sensor_1'"
+    val sql = "SELECT id,temperature FROM dataTable WHERE id='sensor_6'"
     val resultSqlTable = tableEnv.sqlQuery(sql)
-    resultSqlTable.toAppendStream[(String, Double)].print("result")
+    resultSqlTable.toAppendStream[(String, Double)].print("SQL")
 
     env.execute("TableApiExample")
   }
