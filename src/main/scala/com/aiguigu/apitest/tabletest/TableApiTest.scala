@@ -1,9 +1,11 @@
 package com.aiguigu.apitest.tabletest
 
 import org.apache.flink.api.scala.ExecutionEnvironment
+import org.apache.flink.api.scala._
 import org.apache.flink.streaming.api.scala.StreamExecutionEnvironment
-import org.apache.flink.table.api.{EnvironmentSettings, TableEnvironment}
-import org.apache.flink.table.api.scala.{BatchTableEnvironment, StreamTableEnvironment}
+import org.apache.flink.table.api.scala.{BatchTableEnvironment, StreamTableEnvironment, _}
+import org.apache.flink.table.api.{DataTypes, EnvironmentSettings, Table, TableEnvironment}
+import org.apache.flink.table.descriptors.{FileSystem, OldCsv, Schema}
 
 object TableApiTest {
   def main(args: Array[String]): Unit = {
@@ -37,5 +39,22 @@ object TableApiTest {
       .inStreamingMode()
       .build()
     val blinkBatchTableEnv = TableEnvironment.create(blinkBatchSettings)
+
+    // 2. 连接外部系统 读取数据 注册表
+    // 2.1 读取文件
+    val inputPath = getClass.getResource("/sensor.txt").getPath
+    tableEnv.connect(new FileSystem().path(inputPath))
+      .withFormat(new OldCsv())
+      .withSchema(new Schema()
+        .field("id", DataTypes.STRING)
+        .field("timestamp", DataTypes.BIGINT())
+        .field("temperature", DataTypes.DOUBLE())
+      )
+      .createTemporaryTable("inputTable")
+
+    val inputTable: Table = tableEnv.from("inputTable")
+    inputTable.toAppendStream[(String, Long, Double)].print()
+
+    env.execute("TableApiTest")
   }
 }
