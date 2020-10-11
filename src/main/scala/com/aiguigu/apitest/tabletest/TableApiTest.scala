@@ -31,14 +31,14 @@ object TableApiTest {
       .useBlinkPlanner()
       .inStreamingMode()
       .build()
-    val blinkStreamTableEnv = StreamTableEnvironment.create(env, blinkStreamSettings)
+//    val blinkStreamTableEnv = StreamTableEnvironment.create(env, blinkStreamSettings)
 
     // 1.4 基于blink planner的批处理
     val blinkBatchSettings = EnvironmentSettings.newInstance()
       .useBlinkPlanner()
       .inStreamingMode()
       .build()
-    val blinkBatchTableEnv = TableEnvironment.create(blinkBatchSettings)
+//    val blinkBatchTableEnv = TableEnvironment.create(blinkBatchSettings)
 
     // 2. 连接外部系统 读取数据 注册表
     // 2.1 读取文件
