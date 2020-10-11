@@ -72,6 +72,23 @@ object TableApiTest {
     val kafkaInputTable: Table = tableEnv.from("KafkaInputTable")
     kafkaInputTable.toAppendStream[(String, Long, Double)].print()
 
+    // 3 查询转换
+    // 3.1 使用TableApi
+    val sensorTable = tableEnv.from("inputTable")
+    val resultTable = sensorTable
+      .select('id, 'temperature)
+      .filter('id === "sensor_1")
+    resultTable.toAppendStream[(String, Double)].print("resultTable")
+
+    // 3.2 SQL
+    val resultSqlTable = tableEnv.sqlQuery(
+      """
+        |select id, temperature
+        |from inputTable
+        |where id='sensor_1'
+        """.stripMargin)
+    resultSqlTable.toAppendStream[(String, Double)].print("resultSqlTable")
+
     env.execute("TableApiTest")
   }
 }
