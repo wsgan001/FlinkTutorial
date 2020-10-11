@@ -5,7 +5,7 @@ import org.apache.flink.api.scala._
 import org.apache.flink.streaming.api.scala.StreamExecutionEnvironment
 import org.apache.flink.table.api.scala.{BatchTableEnvironment, StreamTableEnvironment, _}
 import org.apache.flink.table.api.{DataTypes, EnvironmentSettings, Table, TableEnvironment}
-import org.apache.flink.table.descriptors.{FileSystem, OldCsv, Schema}
+import org.apache.flink.table.descriptors.{Csv, FileSystem, OldCsv, Schema}
 
 object TableApiTest {
   def main(args: Array[String]): Unit = {
@@ -31,20 +31,20 @@ object TableApiTest {
       .useBlinkPlanner()
       .inStreamingMode()
       .build()
-//    val blinkStreamTableEnv = StreamTableEnvironment.create(env, blinkStreamSettings)
+    //    val blinkStreamTableEnv = StreamTableEnvironment.create(env, blinkStreamSettings)
 
     // 1.4 基于blink planner的批处理
     val blinkBatchSettings = EnvironmentSettings.newInstance()
       .useBlinkPlanner()
       .inStreamingMode()
       .build()
-//    val blinkBatchTableEnv = TableEnvironment.create(blinkBatchSettings)
+    //    val blinkBatchTableEnv = TableEnvironment.create(blinkBatchSettings)
 
     // 2. 连接外部系统 读取数据 注册表
     // 2.1 读取文件
     val inputPath = getClass.getResource("/sensor.txt").getPath
     tableEnv.connect(new FileSystem().path(inputPath))
-      .withFormat(new OldCsv())
+      .withFormat(new Csv())
       .withSchema(new Schema()
         .field("id", DataTypes.STRING)
         .field("timestamp", DataTypes.BIGINT())
