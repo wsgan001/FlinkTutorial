@@ -210,9 +210,47 @@ tableEnv.createTemporaryView("sensorView", dataStream, 'id, 'temperature, 'times
 tableEnv.createTemporaryView("sensorView", sensorTable)
 ```
 
-输出表
+### 输出表
+
+- 表的输出，是通过将数据写入TableSink来实现的
+- TableSink是一个接口，支持不同格式的文件格式、存储数据库和消息队列
+- 输出表最直接的方法，通过Table.insertInto()方法将一个Table写入注册过的TableSink中
 
 ```scala
+    // 3.1 简单转换
+    val resultTable = sensorTable
+      .select('id, 'temperature)
+      .filter('id === "sensor_1")
 
+    // 3.2 聚合转换
+    // 不支持toAppendStream 而是调用toRetractStream，它返回二元组，前面的boolean表示是否失效了
+    val aggTable = sensorTable
+        .groupBy('id) // 基于id分组
+        .select('id, 'id.count as 'count)
+    // import org.apache.flink.api.scala._
+    aggTable.toRetractStream[(String, Long)].print()
+
+    // 4. 输出到文件
+    val outputPath = "output.txt"
+    tableEnv.connect(new FileSystem().path(outputPath))
+      .withFormat(new Csv())
+      .withSchema(new Schema()
+        .field("id", DataTypes.STRING)
+        .field("temperature", DataTypes.DOUBLE())
+      )
+      .createTemporaryTable("outputTable")
+
+    // 简单Table输出到文件
+    resultTable.insertInto("outputTable")
+
+    tableEnv.connect(new FileSystem().path(outputPath))
+      .withFormat(new Csv())
+      .withSchema(new Schema()
+        .field("id", DataTypes.STRING())
+        .field("cnt", DataTypes.BIGINT())
+      )
+      .createTemporaryTable("outputTable2")
+    // 不支持这种方式 只能有插入的变化 不能有聚合的
+    // aggTable.insertInto("outputTable2")
 ```
 
