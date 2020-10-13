@@ -217,40 +217,80 @@ tableEnv.createTemporaryView("sensorView", sensorTable)
 - 输出表最直接的方法，通过Table.insertInto()方法将一个Table写入注册过的TableSink中
 
 ```scala
-    // 3.1 简单转换
-    val resultTable = sensorTable
-      .select('id, 'temperature)
-      .filter('id === "sensor_1")
+// 3.1 简单转换
+val resultTable = sensorTable
+  .select('id, 'temperature)
+  .filter('id === "sensor_1")
 
-    // 3.2 聚合转换
-    // 不支持toAppendStream 而是调用toRetractStream，它返回二元组，前面的boolean表示是否失效了
-    val aggTable = sensorTable
-        .groupBy('id) // 基于id分组
-        .select('id, 'id.count as 'count)
-    // import org.apache.flink.api.scala._
-    aggTable.toRetractStream[(String, Long)].print()
+// 3.2 聚合转换
+// 不支持toAppendStream 而是调用toRetractStream，它返回二元组，前面的boolean表示是否失效了
+val aggTable = sensorTable
+.groupBy('id) // 基于id分组
+.select('id, 'id.count as 'count)
+// import org.apache.flink.api.scala._
+aggTable.toRetractStream[(String, Long)].print()
 
-    // 4. 输出到文件
-    val outputPath = "output.txt"
-    tableEnv.connect(new FileSystem().path(outputPath))
-      .withFormat(new Csv())
-      .withSchema(new Schema()
-        .field("id", DataTypes.STRING)
-        .field("temperature", DataTypes.DOUBLE())
-      )
-      .createTemporaryTable("outputTable")
+// 4. 输出到文件
+val outputPath = "output.txt"
+tableEnv.connect(new FileSystem().path(outputPath))
+  .withFormat(new Csv())
+  .withSchema(new Schema()
+    .field("id", DataTypes.STRING)
+    .field("temperature", DataTypes.DOUBLE())
+  )
+  .createTemporaryTable("outputTable")
 
-    // 简单Table输出到文件
-    resultTable.insertInto("outputTable")
+// 简单Table输出到文件
+resultTable.insertInto("outputTable")
 
-    tableEnv.connect(new FileSystem().path(outputPath))
-      .withFormat(new Csv())
-      .withSchema(new Schema()
-        .field("id", DataTypes.STRING())
-        .field("cnt", DataTypes.BIGINT())
-      )
-      .createTemporaryTable("outputTable2")
-    // 不支持这种方式 只能有插入的变化 不能有聚合的
-    // aggTable.insertInto("outputTable2")
+tableEnv.connect(new FileSystem().path(outputPath))
+  .withFormat(new Csv())
+  .withSchema(new Schema()
+    .field("id", DataTypes.STRING())
+    .field("cnt", DataTypes.BIGINT())
+  )
+  .createTemporaryTable("outputTable2")
+// 不支持这种方式 只能有插入的变化 不能有聚合的
+// aggTable.insertInto("outputTable2")
+
+// 5. 输出到Kafka
+tableEnv.connect(new Kafka()
+  .version("0.11")
+  .topic("kafkaSinkTest") // 一个新的topic
+  .property("zookeeper.connect", "node01:2181")
+  .property("bootstrap.servers", "node01:9092")
+)
+  .withFormat(new Csv())
+  .withSchema(new Schema()
+    .field("id", DataTypes.STRING)
+    .field("temperature", DataTypes.DOUBLE())
+  )
+  .createTemporaryTable("KafkaOutputTable")
+
+resultTable.insertInto("KafkaOutputTable")
 ```
+
+### 更新模式
+
+- 对于流式查询，需要声明如何在表和外部连接器之间进行转换
+
+- 与外部系统交换的消息类型，由更新模式指定
+
+- 更新模式包括
+
+  - 追加模式Append
+
+    表只做插入操作，和外部连接器只交换插入消息
+
+  - 撤回模式Retract
+
+    表和外部连接器交换添加(Add)和撤回(Retract)消息
+
+    插入编码为Add，删除编码为Retract；更新编码为上一条的Retract和下一条的Add消息
+
+  - 更新插入模式Upsert
+
+    更新和插入都编码为Upsert消息，删除编码为Delete消息
+
+
 
