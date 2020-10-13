@@ -38,6 +38,7 @@ object KafkaPipelineTest {
       .filter('id === "sensor_1")
 
     // 3.2 聚合转换
+    // kafka不支持它的写入
     val aggTable = sensorTable
       .groupBy('id)
       .select('id, 'id.count as 'count)

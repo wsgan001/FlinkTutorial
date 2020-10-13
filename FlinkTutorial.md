@@ -224,6 +224,7 @@ val resultTable = sensorTable
 
 // 3.2 聚合转换
 // 不支持toAppendStream 而是调用toRetractStream，它返回二元组，前面的boolean表示是否失效了
+// 不支持写入到Kafka
 val aggTable = sensorTable
 .groupBy('id) // 基于id分组
 .select('id, 'id.count as 'count)
@@ -253,7 +254,21 @@ tableEnv.connect(new FileSystem().path(outputPath))
 // 不支持这种方式 只能有插入的变化 不能有聚合的
 // aggTable.insertInto("outputTable2")
 
-// 5. 输出到Kafka
+// 5. 输出到Kafka仅支持kafkaInputTable 不支持aggTable
+tableEnv.connect(new Kafka()
+  .version("0.11")
+  .topic("sensor")
+  .property("zookeeper.connect", "node01:2181")
+  .property("bootstrap.servers", "node01:9092")
+)
+  .withFormat(new Csv())
+  .withSchema(new Schema()
+    .field("id", DataTypes.STRING)
+    .field("timestamp", DataTypes.BIGINT())
+    .field("temperature", DataTypes.DOUBLE())
+  )
+  .createTemporaryTable("KafkaInputTable")
+val kafkaInputTable: Table = tableEnv.from("KafkaInputTable")
 tableEnv.connect(new Kafka()
   .version("0.11")
   .topic("kafkaSinkTest") // 一个新的topic
