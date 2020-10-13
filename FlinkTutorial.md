@@ -301,6 +301,25 @@ tableEnv.connect(
   .createTemporaryTable("esOutputTable")
 aggTable.insertInto("esOutputTable")
 // 通过命令 curl "node01:9200/sensor/_search?pretty" 查看
+
+// 7. 输出到MySQL，依赖: flink-jdbc_2.12
+// 需要保证mysql test数据库下有sensor_count表
+val sinkDDL: String =
+  """
+    |CREATE TABLE jdbcOutputTable(
+    |  id varchar(20) not null,
+    |  cnt bigint not null
+    |) with (
+    |  'connector.type'='jdbc',
+    |  'connector.url'='jdbc:mysql://node01:3306/test',
+    |  'connector.table'='sensor_count',
+    |  'connector.driver'='com.mysql.jdbc.Driver',
+    |  'connector.username'='root',
+    |  'connector.password'='123456',
+    |)
+    |""".stripMargin
+tableEnv.sqlUpdate(sinkDDL)
+aggTable.insertInto("jdbcOutputTable")
 ```
 
 ### 更新模式
