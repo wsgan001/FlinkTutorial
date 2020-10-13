@@ -115,7 +115,7 @@ tableEnv
 val filePath = getClass.getResource("/sensor.txt").getPath
 tableEnv
     .connect(new FileSystem().path(filePath))
-    .withFormat(new Csv()) // 需要加入依赖flink-csv
+    .withFormat(new Csv()) // 依赖: flink-csv
     .withSchema(new Schema()
         .field("id", DataTypes.STRING())
         .field("timestamp", DataTypes.BIGINT())
@@ -127,7 +127,7 @@ tableEnv
 val fileInputTable: Table = tableEnv.from("fileInputTable")
 inputTable.toAppendStream[(String, Long, Double)].print("fileInputTable")
 
-// 2.2 从Kafka读取数据，需要引入依赖flink-connector-kafka-0.11_2.12
+// 2.2 从Kafka读取数据，依赖: flink-connector-kafka-0.11_2.12
 tableEnv
     .connect(new Kafka()
         .version("0.11")
@@ -283,6 +283,24 @@ tableEnv.connect(new Kafka()
   .createTemporaryTable("KafkaOutputTable")
 
 resultTable.insertInto("KafkaOutputTable")
+
+// 6. 输出到ElasticSearch
+tableEnv.connect(
+    new Elasticsearch()
+      .version("6")
+      .host("node01", 9200, "http")
+      .index("sensor")
+      .documentType("temp")
+)
+  .inUpsertMode()
+  .withFormat(new Json()) // 依赖: flink-json
+  .withSchema(new Schema()
+      .field("id", DataTypes.STRING())
+      .field("count", DataTypes.BIGINT())
+  )
+  .createTemporaryTable("esOutputTable")
+aggTable.insertInto("esOutputTable")
+// 通过命令 curl "node01:9200/sensor/_search?pretty" 查看
 ```
 
 ### 更新模式

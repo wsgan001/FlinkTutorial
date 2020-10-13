@@ -176,5 +176,6 @@
     <orderEntry type="library" name="Maven: org.reflections:reflections:0.9.10" level="project" />
     <orderEntry type="library" name="Maven: org.javassist:javassist:3.19.0-GA" level="project" />
     <orderEntry type="library" name="Maven: org.apache.flink:flink-csv:1.10.1" level="project" />
+    <orderEntry type="library" name="Maven: org.apache.flink:flink-json:1.10.1" level="project" />
   </component>
 </module>
