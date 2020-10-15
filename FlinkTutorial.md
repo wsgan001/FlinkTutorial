@@ -344,5 +344,28 @@ aggTable.insertInto("jdbcOutputTable")
 
     更新和插入都编码为Upsert消息，删除编码为Delete消息
 
+### 将Table转换为DataStream
 
+- 表可以转为DataStream或DataSet，这样自定义流处理或批处理程序就可以继续在TableAPI或SQL的结果上继续运行了
+
+- 表转为DataStream或DataSet时需要指定数据类型
+
+  ```scala
+  // 1.
+  aggTable.toRetractStream[(String, Long)].print()
+  resultTable.toAppendStream[(String, Double)]
+  // 2.
+  aggTable.toRetractStream[Row].print()
+  resultTable.toAppendStream[Row]
+  ```
+
+- 表做为流式查询的结果，是动态更新的
+
+- 转换模式有两种: 追加模式和撤回模式
+
+### 查看执行计划
+
+```scala
+tableEnv.explain(table)
+```
 

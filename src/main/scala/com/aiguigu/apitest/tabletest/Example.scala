@@ -33,6 +33,8 @@ object Example {
     val resultSqlTable = tableEnv.sqlQuery(sql)
     resultSqlTable.toAppendStream[(String, Double)].print("SQL")
 
+    println(tableEnv.explain(resultSqlTable))
+
     env.execute("TableApiExample")
   }
 }
