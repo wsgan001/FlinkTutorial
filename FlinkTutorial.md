@@ -440,6 +440,52 @@ val sinkDDL: String =
       |  'format.type' = 'csv',
       |)
     """.stripMargin
-tableEnv.sqlUpdate(sinkDDL)
+```
+
+**定义事件时间(Event Time)**
+
+由DataStream转换成表的时候指定
+
+```scala
+// 1
+val sensorTable = 
+    tableEnv.fromDataStream(dataStream, 'id, 'temperature.rowtime, 'timestamp)
+// 2
+val sensorTable = 
+    tableEnv.fromDataStream(dataStream, 'id, 'temperature, 'timestamp, 'rt.rowtime)
+```
+
+定义Table Schema时指定
+
+```scala
+.withSchema(new Schema()
+    .field("id", DataTypes.STRING())
+    .field("timestamp", DataTypes.BIGINT())
+    .rowtime(
+      new Rowtime()
+        .timestampsFromField("timestamp") // 哪一个字段做为rowtime
+        .watermarksPeriodicBounded(1000)  // watermark延迟1s
+    )
+    .field("temperature", DataTypes.DOUBLE())
+ )
+```
+
+在创建表的DDL中定义
+
+```scala
+val sinkDDL: String = 
+    """
+      |CREATE TABLE dataTable (
+      |  id varchar(20) not null,
+      |  ts BIGINT,
+      |  temperature DOUBLE,
+      |  rt AS TO_TIMESTAMP(FROM_UNIXTIME(ts)),
+      |  watermark for rt AS rt - interval '1' second // 基于rt生成watermark 1s
+      |) WITH (
+      |  'connector.type' = 'filesystem',
+      |  'connector.path' = '/sensor.txt',
+      |  'format.type' = 'csv',
+      |)
+    """.stripMargin
 ```
 
