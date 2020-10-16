@@ -369,3 +369,77 @@ aggTable.insertInto("jdbcOutputTable")
 tableEnv.explain(table)
 ```
 
+### 动态表
+
+- Flink对数据流的TableAPI和SQL支持的核心概念
+- 动态表是随时间变化的
+
+   持续查询
+
+- 查询一个动态表会产生持续查询
+- 持续查询永远不会终止，会生成另外一个动态表
+- 查询会不断更新其动态结果表，以反映其动态输入表上的更改
+
+流式表查询的处理过程
+
+1. 流被转换为动态表
+2. 对动态表计算连续查询，生成新的动态表
+3. 生成的动态表被转回流
+
+### 动态表转成DataStream
+
+- Dynamic Table -> Retract Stream
+- Dynamic Table -> Upsert Stream
+
+### TableAPI和SQL的时间特性
+
+- 基于时间的操作，需要指定时间语义和时间数据来源的信息
+- Table可以提供一个逻辑上的时间字段，用于在表处理程序中，指示时间和访问相应的时间戳
+- 时间属性，可以是每个表schema的一部分。一旦定义了时间属性，它就可以作为一个字段引用，并且可以在基于时间的操作中使用
+- 时间属性的行为类似于常规时间戳，可以访问和进行计算
+
+**定义处理时间(Processing Time)**
+
+不需要提取时间戳，也不需要生成watermark
+
+由DataStream转换成表的时候指定
+
+- 定义Schema时，可以使用.proctime，指定字段名定义处理时间字段
+- 该proctime属性只能通过附加逻辑字段来扩展物理Schema，因此只能在Schema的末尾定义它
+
+```scala
+val sensorTable = 
+    tableEnv.fromDataStream(dataStream, 'id, 'temperature, 'timestamp, 'pt.proctime)
+```
+
+定义Table Schema时指定
+
+```scala
+.withSchema(new Schema()
+    .field("id", DataTypes.STRING())
+    .field("timestamp", DataTypes.BIGINT())
+    .field("temperature", DataTypes.DOUBLE())
+    .field("pt", DataTypes.TIMESTAMP(3))
+    .proctime()
+ )
+```
+
+在创建表的DDL中定义
+
+```scala
+val sinkDDL: String = 
+    """
+      |CREATE TABLE dataTable (
+      |  id varchar(20) not null,
+      |  ts BIGINT,
+      |  temperature DOUBLE,
+      |  pt AS PROCTIME()
+      |) WITH (
+      |  'connector.type' = 'filesystem',
+      |  'connector.path' = '/sensor.txt',
+      |  'format.type' = 'csv',
+      |)
+    """.stripMargin
+tableEnv.sqlUpdate(sinkDDL)
+```
+
