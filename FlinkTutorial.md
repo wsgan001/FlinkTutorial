@@ -662,3 +662,159 @@ val overResultSqlTable = tableEnv.sqlQuery(
 overResultSqlTable.toRetractStream[Row].print("sql")
 ```
 
+### 函数
+
+#### 系统内置函数
+
+- 比较函数
+
+  - SQL
+
+    value1 = value2
+
+    value1 > value2
+
+  - Table API
+
+    Any1 === Any1
+
+    Any1 > Any2
+
+- 逻辑函数
+
+  - SQL
+
+    boolean1 OR boolean2
+
+    boolean IS FALSE
+
+    NOT boolean
+
+  - Table API
+
+    BOOLEAN1 || BOOLEAN2
+
+    BOOLEAN.isFalse
+
+    !BOOLEAN
+
+- 算数函数
+
+  - SQL
+
+    numberic1 + numberic2
+
+    POWER(numberic1, numberic2)
+
+  - Table API
+
+    NUMBERIC1 + NUMBERIC2
+
+    NUMBERIC1.power(NUMBERIC2)
+
+- 字符串函数
+
+  - SQL
+
+    string1 || string2
+
+    UPPER(string)
+
+    CHAR_LENGTH(string)
+
+  - Table API
+
+    string1 + string2
+
+    string.upperCase()
+
+    string.charLength()
+
+- 时间函数
+
+  - SQL
+
+    DATE string
+
+    TIMESTAMP string
+
+    CURRENT_TIME
+
+    INTERVAL string range
+
+  - Table API
+
+    string.toDate
+
+    string.toTimestamp
+
+    currentTime()
+
+    NUMBERIC.days
+
+    NUMBERIC.minutes
+
+- 聚合函数
+
+  - SQL
+
+    COUNT(*)
+
+    SUM(expression)
+
+    RANK()
+
+    ROW_NUMBER()
+
+  - Table API
+
+    FIELD.count
+
+    FIELD.sum()
+
+#### UDF函数
+
+- 显著地扩展了查询的表达能力
+- 必须先注册，后使用
+- tableEnv#registerFunction
+
+**UDF函数-标量函数**
+
+- 用户定义的标量函数，可以将0、1或多个标量值，映射到新的标量值
+- 定义标量函数，必须在org.apache.flink.table.functions中扩展基类ScalarFunction，并实现一个或多个求值方法
+- 标量函数的行为由求值方法决定，求值方法必须公开声明并命名为eval
+
+```scala
+// 调用自定义hash函数 对id进行hash运算
+// 1. table api
+val hashCode = new HashCode(23)
+val resultTable = sensorTable
+  .select('id, 'ts, hashCode('id))
+// 2. sql
+// 需要在表环境中先注册
+tableEnv.createTemporaryView("sensor", sensorTable)
+tableEnv.registerFunction("hashCode", hashCode)
+val resultSqlTable = tableEnv.sqlQuery("SELECT id, ts, hashCode(id) from sensor")
+
+resultTable.toAppendStream[Row].print("result")
+resultSqlTable.toAppendStream[Row].print("sql")
+
+class HashCode(factor: Int) extends ScalarFunction {
+  def eval(s: String): Int = {
+    s.hashCode * factor - 10000
+  }
+}
+```
+
+**UDF函数-表函数**
+
+
+
+**UDF函数-聚合函数**
+
+
+
+**UDF函数-表聚合函数**
+
+
+
