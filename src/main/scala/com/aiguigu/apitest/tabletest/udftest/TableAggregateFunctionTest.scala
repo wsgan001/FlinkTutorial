@@ -7,9 +7,11 @@ import org.apache.flink.streaming.api.scala.{StreamExecutionEnvironment, _}
 import org.apache.flink.streaming.api.windowing.time.Time
 import org.apache.flink.table.api.EnvironmentSettings
 import org.apache.flink.table.api.scala.{StreamTableEnvironment, _}
+import org.apache.flink.table.functions.TableAggregateFunction
 import org.apache.flink.types.Row
+import org.apache.flink.util.Collector
 
-object TableAggregateFunction {
+object TableAggregateFunctionTest {
   def main(args: Array[String]): Unit = {
     val env = StreamExecutionEnvironment.getExecutionEnvironment
     env.setParallelism(1)
@@ -34,22 +36,43 @@ object TableAggregateFunction {
 
     val sensorTable = tableEnv.fromDataStream(dataStream, 'id, 'temperature, 'timestamp.rowtime as 'ts)
 
-    // 调用自定义hash函数 对id进行hash运算
     // 1. table api
-    val hashCode = new HashCode(23)
+    val top2TempAcc = new TopN()
     val resultTable = sensorTable
-      .select('id, 'ts, hashCode('id))
+      .groupBy('id)
+      .flatAggregate(top2TempAcc('temperature) as('temp, 'rank))
+      .select('id, 'temp, 'rank)
 
-    // 2. sql
-    // 需要在表环境中先注册
-    tableEnv.createTemporaryView("sensor", sensorTable)
-    tableEnv.registerFunction("hashCode", hashCode)
-    val resultSqlTable = tableEnv.sqlQuery("SELECT id, ts, hashCode(id) from sensor")
-
-    resultTable.toAppendStream[Row].print("result")
-    resultSqlTable.toAppendStream[Row].print("sql")
+    resultTable.toRetractStream[Row].print("result")
 
     env.execute()
   }
 }
+
+class Top2TempAcc {
+  var highestTemp: Double = Double.MinValue
+  var secondHighestTemp: Double = Double.MinValue
+}
+
+// 提取所有温度值中最高的两个温度 输出(temp, rank)
+class TopN extends TableAggregateFunction[(Double, Int), Top2TempAcc] {
+
+  // 实现计算聚合结果的函数accumulate
+  def accumulate(acc: Top2TempAcc, temp: Double): Unit = {
+    if (temp > acc.highestTemp) {
+      acc.secondHighestTemp = acc.highestTemp
+      acc.highestTemp = temp
+    } else if (temp > acc.secondHighestTemp) {
+      acc.secondHighestTemp = temp
+    }
+  }
+
+  def emitValue(acc: Top2TempAcc, out: Collector[(Double, Int)]): Unit = {
+    out.collect((acc.highestTemp, 1))
+    out.collect((acc.secondHighestTemp, 2))
+  }
+
+  override def createAccumulator(): Top2TempAcc = new Top2TempAcc()
+}
+
 

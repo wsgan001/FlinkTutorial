@@ -902,5 +902,51 @@ class AvgTemp extends AggregateFunction[Double, AvgTempAcc] {
 
 **UDF函数-表聚合函数**
 
+- 表聚合函数可以把一个表中的数据，聚合为具有多行和多列的结果表
+- 继承TableAggregateFunction实现
+  - createAccumulator()
+  - accumulate()
+  - emitValue
 
+- 原理
+  - 累加器保存聚合中间结果的数据结构
+  - 对每个输入行调用accumulate()方法更新累加器
+  - 处理完所有行后，调用emitValue()方法计算并返回最终结果
+
+```scala
+// 1. table api
+val top2TempAcc = new TopN()
+val resultTable = sensorTable
+  .groupBy('id)
+  .flatAggregate(top2TempAcc('temperature) as('temp, 'rank))
+  .select('id, 'temp, 'rank)
+
+resultTable.toRetractStream[Row].print("result")
+
+class Top2TempAcc {
+  var highestTemp: Double = Double.MinValue
+  var secondHighestTemp: Double = Double.MinValue
+}
+
+// 提取所有温度值中最高的两个温度 输出(temp, rank)
+class TopN extends TableAggregateFunction[(Double, Int), Top2TempAcc] {
+
+  // 实现计算聚合结果的函数accumulate
+  def accumulate(acc: Top2TempAcc, temp: Double): Unit = {
+    if (temp > acc.highestTemp) {
+      acc.secondHighestTemp = acc.highestTemp
+      acc.highestTemp = temp
+    } else if (temp > acc.secondHighestTemp) {
+      acc.secondHighestTemp = temp
+    }
+  }
+
+  def emitValue(acc: Top2TempAcc, out: Collector[(Double, Int)]): Unit = {
+    out.collect((acc.highestTemp, 1))
+    out.collect((acc.secondHighestTemp, 2))
+  }
+
+  override def createAccumulator(): Top2TempAcc = new Top2TempAcc()
+}
+```
 
