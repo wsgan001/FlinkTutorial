@@ -554,6 +554,111 @@ SESSION(time_attr, interval)
 // 第一个参数是时间字段，第二个参数是窗口间隔
 ```
 
+```scala
+// 1. Group Window
+// 1.1 table api
+val resultTable = sensorTable
+  .window(Tumble over 10.seconds on 'ts as 'tw) // 每10s统计一次 滚动时间窗口
+  .groupBy('id, 'tw)
+  .select('id, 'id.count, 'temperature.avg, 'tw.end)
+
+// 1.2 sql
+tableEnv.createTemporaryView("sensor", sensorTable)
+val resultSqlTable = tableEnv.sqlQuery(
+  """
+    |SELECT
+    |  id,
+    |  count(id),
+    |  AVG(temperature),
+    |  tumble_end(ts, interval '10' second)
+    |FROM sensor
+    |GROUP BY
+    |  id,
+    |  tumble(ts, interval '10' second)
+    |""".stripMargin)
+
+// 转换成流 打印输出
+// 因为没有迟到数据，结果不会改动，所以可以使用toAppendStream
+resultTable.toAppendStream[Row].print("result")
+resultSqlTable.toRetractStream[Row].print("sql")
+```
+
 **Over Windows**
 
+Table API中的Over Window
+
 - 针对每一个输入行，计算相邻行范围内的聚合
+
+```scala
+var table = input
+  .window([w: OverWindow] as 'w)
+  .select('a, 'b.sum over 'w, 'c.min over 'w)
+```
+
+TableAPI中无界的over window是使用常量指定的
+
+```scala
+// 无界的Event-time over window
+.window(Over partitionBy 'a orderBy 'rowtime preceding UNBOUNDED_RANGE as 'w)
+// 无界的Processing-time over window
+.window(Over partitionBy 'a orderBy 'proctime preceding UNBOUNDED_RANGE as 'w)
+// 无界的Event-time Row-count over window
+.window(Over partitionBy 'a orderBy 'rowtime preceding UNBOUNDED_ROW as 'w)
+// 无界的Processing-time Row-count over window
+.window(Over partitionBy 'a orderBy 'proctime preceding UNBOUNDED_ROW as 'w)
+```
+
+TableAPI中有界的over window是使用间隔大小指定的
+
+```scala
+// 有界的Event-time over window
+.window(Over partitionBy 'a orderBy 'rowtime preceding 1.minutes as 'w)
+// 有界的Processing-time over window
+.window(Over partitionBy 'a orderBy 'proctime preceding 1.minutes as 'w)
+// 有界的Event-time Row-count over window
+.window(Over partitionBy 'a orderBy 'rowtime preceding 10.rows as 'w)
+// 有界的Processing-time Row-count over window
+.window(Over partitionBy 'a orderBy 'proctime preceding 10.rows as 'w)
+```
+
+SQL中的Over Window
+
+- 所有聚合必须在同一窗口上定义，必须是相同的分区、排序和范围
+- 仅支持在当前行范围之前的窗口
+- ORDER BY必须在单一的时间属性上指定
+
+```sql
+SELECT COUNT(amount) OVER (
+    PARTITION BY user
+    ORDERED BY proctime
+    ROWS BETWEEN 2 PRECEDING AND CURRENT ROW)
+FROM Orders
+```
+
+```scala
+// 2. Over Window 统计每个sensor每条数据与其前两条数据的平均温度
+// 2.1 table api
+val overResultTable = sensorTable
+  .window(Over partitionBy 'id orderBy 'ts preceding 2.rows as 'ow)
+  .select('id, 'ts, 'id.count over 'ow, 'temperature.avg over 'ow)
+overResultTable.toAppendStream[Row].print("overResult")
+
+// 2.2 sql
+val overResultSqlTable = tableEnv.sqlQuery(
+  """
+  |SELECT 
+  |  id,
+  |  ts,
+  |  COUNT(id) OVER ow,
+  |  AVG(temperature) OVER ow
+  |FROM sensor
+  |WINDOW ow AS(
+  |    PARTITION BY id
+  |    ORDER BY ts
+  |    ROWS BETWEEN 2 PRECEDING AND CURRENT ROW
+  |)
+  """.stripMargin
+)
+overResultSqlTable.toRetractStream[Row].print("sql")
+```
+

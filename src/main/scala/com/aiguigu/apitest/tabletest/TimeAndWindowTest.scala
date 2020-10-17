@@ -6,7 +6,7 @@ import org.apache.flink.streaming.api.functions.timestamps.BoundedOutOfOrderness
 import org.apache.flink.streaming.api.scala.{StreamExecutionEnvironment, _}
 import org.apache.flink.streaming.api.windowing.time.Time
 import org.apache.flink.table.api.scala.{StreamTableEnvironment, _}
-import org.apache.flink.table.api.{EnvironmentSettings, Tumble}
+import org.apache.flink.table.api.{EnvironmentSettings, Over, Tumble}
 import org.apache.flink.types.Row
 
 object TimeAndWindowTest {
@@ -60,6 +60,29 @@ object TimeAndWindowTest {
     // 因为没有迟到数据，结果不会改动，所以可以使用toAppendStream
     resultTable.toAppendStream[Row].print("result")
     resultSqlTable.toRetractStream[Row].print("sqlResult")
+
+    val overResultTable = sensorTable
+      .window(Over partitionBy 'id orderBy 'ts preceding 2.rows as 'ow)
+      .select('id, 'ts, 'id.count over 'ow, 'temperature.avg over 'ow)
+    overResultTable.toAppendStream[Row].print("overResult")
+
+    // 2.2 sql
+    val overResultSqlTable = tableEnv.sqlQuery(
+      """
+        |SELECT
+        |  id,
+        |  ts,
+        |  COUNT(id) OVER ow,
+        |  AVG(temperature) OVER ow
+        |FROM sensor
+        |WINDOW ow AS(
+        |    PARTITION BY id
+        |    ORDER BY ts
+        |    ROWS BETWEEN 2 PRECEDING AND CURRENT ROW
+        |)
+  """.stripMargin
+    )
+    overResultSqlTable.toRetractStream[Row].print("sql")
 
     env.execute()
   }
