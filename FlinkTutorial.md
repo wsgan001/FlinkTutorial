@@ -489,3 +489,71 @@ val sinkDDL: String =
     """.stripMargin
 ```
 
+### TableAPI和SQL中的窗口
+
+**Group Windows 分组窗口**
+
+- 根据时间或行数的间隔，将行聚合到有限的组中，并对每个组的数据行执行一次聚合函数
+
+```scala
+val table = input
+    .window([w: GroupWindow] as 'w) // 定义窗口，别名为w
+    .groupBy('w, 'a)    // 按照字段a和窗口w分组
+    .select('a, 'b.sum) // 聚合
+```
+
+TableAPI滚动窗口
+
+```scala
+// 1. Tumbling Event-time Window
+.window(Tumble over 10.minutes on 'rowtime as 'w)
+// 2. Tumbling Processing-time Window
+.window(Tumble over 10.minutes on 'proctime as 'w)
+// 3. Tumbling Row-count Window
+.window(Tumble over 10.rows on 'proctime as 'w)
+```
+
+TableAPI滑动窗口
+
+```scala
+// 1. Sliding Event-time Window
+.window(Slide over 10.minutes every 5.minutes on 'rowtime as 'w)
+// 2. Sliding Processing-time Window
+.window(Slide over 10.minutes every 5.minutes on 'proctime as 'w)
+// 3. Sliding Row-count Window
+.window(Slide over 10.rows every 5.rows on 'proctime as 'w)
+```
+
+TableAPI会话窗口
+
+```scala
+// 1. Session Event-time Window
+.window(Session withGap 10.minutes on 'rowtime as 'w)
+// 2. Session Processing-time Window
+.window(Session withGap 10.minutes on 'proctime as 'w)
+```
+
+SQL中的滚动窗口
+
+```scala
+TUMBLE(time_attr, interval)
+// 第一个参数是时间字段，第二个参数是窗口长度
+```
+
+SQL中的滑动窗口
+
+```scala
+HOP(time_attr, interval, interval)
+// 第一个参数是时间字段，第二个参数是窗口滑动步长，第三个参数是窗口长度
+```
+
+SQL中的会话窗口
+
+```scala
+SESSION(time_attr, interval)
+// 第一个参数是时间字段，第二个参数是窗口间隔
+```
+
+**Over Windows**
+
+- 针对每一个输入行，计算相邻行范围内的聚合
