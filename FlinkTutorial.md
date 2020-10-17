@@ -808,6 +808,41 @@ class HashCode(factor: Int) extends ScalarFunction {
 
 **UDF函数-表函数**
 
+- 用户定义的表函数，可以将0、1或多个标量值做为输入参数，返回任意数量的行做为输出
+- 定义表函数，必须在org.apache.flink.table.functions中扩展基类TableFunction，并实现一个或多个求值方法
+- 表函数的行为由求值方法决定，求值方法必须公开声明并命名为eval
+
+```scala
+// 1. table api
+val split = new Split("_")
+val resultTable = sensorTable
+  .joinLateral(split('id) as('word, 'length))
+  .select('id, 'ts, 'word, 'length)
+
+// 2. sql
+tableEnv.createTemporaryView("sensor", sensorTable)
+tableEnv.registerFunction("split", split)
+val resultSqlTable = tableEnv.sqlQuery(
+  """
+    |SELECT
+    |  id, ts, word, length
+    |FROM
+    |  sensor, LATERAL TABLE(split(id)) as splitid(word, length)
+    |""".stripMargin
+)
+
+resultTable.toAppendStream[Row].print("result")
+resultSqlTable.toAppendStream[Row].print("sql")
+
+class Split(separator: String) extends TableFunction[(String, Int)] {
+  def eval(str: String): Unit = {
+    str.split(separator).foreach(
+      word => collect((word, word.length))
+    )
+  }
+}
+```
+
 
 
 **UDF函数-聚合函数**
