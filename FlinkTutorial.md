@@ -843,11 +843,62 @@ class Split(separator: String) extends TableFunction[(String, Int)] {
 }
 ```
 
-
-
 **UDF函数-聚合函数**
 
+- 把一个表中的数据，聚合成一个标量值
+- 需要继承AggregateFunction抽象类实现
+  - createAccumulator()
+  - accumulate()
+  - getValue()
+- 原理
+  - 累加器保存聚合中间结果的数据结构
+  - 对每个输入行调用accumulate()方法更新累加器
+  - 处理完所有行后，调用getValue()返回最终结果
 
+```scala
+// 1. table api
+val avgTemp = new AvgTemp()
+val resultTable = sensorTable
+  .groupBy('id)
+  .aggregate(avgTemp('temperature) as 'avgTemp)
+  .select('id, 'avgTemp)
+
+// 2. sql
+// 需要在表环境中先注册
+tableEnv.createTemporaryView("sensor", sensorTable)
+tableEnv.registerFunction("avgTemp", avgTemp)
+val resultSqlTable = tableEnv.sqlQuery(
+  """
+    |SELECT
+    |  id, avgTemp(temperature)
+    |FROM
+    |  sensor
+    |GROUP BY id
+    |""".stripMargin
+)
+
+resultTable.toRetractStream[Row].print("result")
+resultSqlTable.toRetractStream[Row].print("sql")
+
+// 定义一个类 专门用于表示聚合状态
+class AvgTempAcc {
+  var sum: Double = 0.0
+  var count: Int = 0
+}
+
+// 求每个sensor所有温度的平均值 保存状态(tempSum, tempCount)
+class AvgTemp extends AggregateFunction[Double, AvgTempAcc] {
+
+  def accumulate(accumulator: AvgTempAcc, temp: Double) = {
+    accumulator.sum += temp
+    accumulator.count += 1
+  }
+
+  override def getValue(accumulator: AvgTempAcc): Double = accumulator.sum / accumulator.count
+
+  override def createAccumulator(): AvgTempAcc = new AvgTempAcc()
+}
+```
 
 **UDF函数-表聚合函数**
 
