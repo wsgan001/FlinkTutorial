@@ -19,7 +19,7 @@ object MySQLSinkTest {
         SensorReading(arr(0), arr(1).toLong, arr(2).toDouble)
       }
     )
-
+    dataStream.addSink(new MyJdbcSinkFunc)
 
     env.execute("MySQLSinkTest")
   }
